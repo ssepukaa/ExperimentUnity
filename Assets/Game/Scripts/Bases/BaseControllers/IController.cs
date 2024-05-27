@@ -1,11 +1,12 @@
 ﻿using Assets.Game.Scripts.Bases.BaseModels;
-using Assets.Game.Scripts.Bases.Interfaces;
+using Assets.Game.Scripts.Bases.BaseViews;
 
 namespace Assets.Game.Scripts.Bases.BaseControllers
 {
-    public interface IController: IUpdatable {
+    public interface IController
+    {
         string Id { get; }
         IModel Model { get; }
-        void Run();
+        BaseView  View { get; }
     }
 }

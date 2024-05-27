@@ -3,6 +3,5 @@
     public interface IFactory
     {
         void Execute();
-
     }
 }
