@@ -139,5 +139,10 @@ namespace Assets.Game.Scripts.GameC {
         public T GetService<T>() where T : IGameService {
             return (T)_services.Find(service => service is T);
         }
+
+        public void Save()
+        {
+            GetService<SaveLoadService>().Save(GetService<ControllerFactoryService>().Controllers);
+        }
     }
 }

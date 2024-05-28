@@ -33,8 +33,10 @@ namespace Assets.Game.Scripts.GameC.GameServices {
             _parentTransform = parentGameObject.transform;
         }
 
+        public List<IController> Controllers => _controllers;
+
         public void CreateNewListControllers(List<IModel> models) {
-            _controllers.Clear();
+            Controllers.Clear();
             _views.Clear();
             _updatableControllers.Clear();
             _fixedUpdatableControllers.Clear();
@@ -46,7 +48,7 @@ namespace Assets.Game.Scripts.GameC.GameServices {
         }
 
         public void AddController(IController controller) {
-            _controllers.Add(controller);
+            Controllers.Add(controller);
             if (controller is IUpdatable updatableController) {
                 _updatableControllers.Add(updatableController);
             }
@@ -61,7 +63,7 @@ namespace Assets.Game.Scripts.GameC.GameServices {
         }
 
         public void RemoveController(IController controller) {
-            _controllers.Remove(controller);
+            Controllers.Remove(controller);
             if (controller is IUpdatable updatableController) {
                 _updatableControllers.Remove(updatableController);
             }
@@ -123,5 +125,6 @@ namespace Assets.Game.Scripts.GameC.GameServices {
                 _views.Remove(view);
             }
         }
+        
     }
 }

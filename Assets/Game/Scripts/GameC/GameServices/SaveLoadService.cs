@@ -19,9 +19,17 @@ namespace Assets.Game.Scripts.GameC.GameServices {
                 models.Add(controller.Model);
             }
 
-            string jsonData = JsonConvert.SerializeObject(models, Formatting.Indented, new JsonSerializerSettings {
-                TypeNameHandling = TypeNameHandling.Auto
-            });
+            JsonSerializerSettings settings = new JsonSerializerSettings {
+                Formatting = Formatting.Indented,
+                TypeNameHandling = TypeNameHandling.Auto,
+                ReferenceLoopHandling = ReferenceLoopHandling.Ignore,
+                Converters = new List<JsonConverter> {
+                    new Vector3Converter(),
+                    new QuaternionConverter()
+                }
+            };
+
+            string jsonData = JsonConvert.SerializeObject(models, settings);
             File.WriteAllText(saveFilePath, jsonData);
         }
 
@@ -31,9 +39,16 @@ namespace Assets.Game.Scripts.GameC.GameServices {
             }
 
             string jsonData = File.ReadAllText(saveFilePath);
-            return JsonConvert.DeserializeObject<List<IModel>>(jsonData, new JsonSerializerSettings {
-                TypeNameHandling = TypeNameHandling.Auto
-            });
+            JsonSerializerSettings settings = new JsonSerializerSettings {
+                TypeNameHandling = TypeNameHandling.Auto,
+                ReferenceLoopHandling = ReferenceLoopHandling.Ignore,
+                Converters = new List<JsonConverter> {
+                    new Vector3Converter(),
+                    new QuaternionConverter()
+                }
+            };
+
+            return JsonConvert.DeserializeObject<List<IModel>>(jsonData, settings);
         }
     }
 }

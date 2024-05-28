@@ -24,6 +24,7 @@ namespace Assets.Game.Scripts.GameC.GameStates {
 
             _game.CreateNewListControllers(models);
             _game.ChangeGameState<GameplayGameState>();
+            _game.Save();
         }
 
         public override void Execute() {

@@ -2,16 +2,21 @@
 using UnityEngine;
 
 namespace Assets.Game.Scripts.Bases.BaseModels {
+    [JsonObject(MemberSerialization.OptIn)]
     [System.Serializable]
     public abstract class BaseModel : IModel {
         [JsonProperty("id")]
         [SerializeField] private string id;
+
         [JsonProperty("position")]
         [SerializeField] private Vector3 position;
+
         [JsonProperty("rotation")]
         [SerializeField] private Quaternion rotation;
+
         [JsonProperty("scale")]
         [SerializeField] private Vector3 scale;
+
         [JsonProperty("prefabReference")]
         [SerializeField] private string prefabReference;
 
