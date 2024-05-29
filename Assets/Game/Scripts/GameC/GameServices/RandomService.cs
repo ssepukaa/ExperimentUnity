@@ -1,7 +1,7 @@
 ﻿using UnityEngine;
 
 namespace Assets.Game.Scripts.GameC.GameServices {
-    public class RandomService : IGameService {
+    public class RandomService : BaseGameService {
         private System.Random _random = new System.Random();
 
         public int RandomRange(int min, int max) {

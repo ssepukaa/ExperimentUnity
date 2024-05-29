@@ -1,29 +1,46 @@
 ﻿using Assets.Game.Scripts.Bases.BaseModels;
 using Assets.Game.Scripts.Bases.BaseViews;
+using Assets.Game.Scripts.GameC;
+using Assets.Game.Scripts.GameC.GameServices;
 using UnityEngine;
 
 namespace Assets.Game.Scripts.Bases.BaseControllers {
     [System.Serializable]
-    public abstract class BaseController : IController {
-        protected IModel _model;
-        protected BaseView _view;
+    public abstract class BaseController {
+        protected BaseModel _model;
+        //protected BaseModel _baseModel;
+        [SerializeField] protected BaseView _view;
 
-        public string Id => _model.Id;
-        public IModel Model => _model;
+        [SerializeField] public string Id => _model.Id;
+        public BaseModel Model => _model;
         public BaseView View => _view;
+        protected bool _isInitComplete;
 
-        protected BaseController(IModel model) {
+        protected BaseController(BaseModel model) {
             _model = model;
+
         }
 
         public void SetView(BaseView view) {
             _view = view;
-            var viewComponent = _view.GetComponent<IView>();
-            if (viewComponent != null) {
-                viewComponent.Initialize(_model);
+           if (view != null) {
+                view.Initialize(_model);
+                GetComponentsOnView();
+                _view.Model = Model;
+                GameController.Instance.GetService<ControllerFactoryService>().AddView(_view);
             }
+
+
         }
 
-        public abstract void Run();
+        protected virtual void GetComponentsOnView() {
+            InitServices();
+        }
+        protected virtual void InitServices() {
+        }
+
+        public virtual void Run() {
+            if (!_isInitComplete) return;
+        }
     }
 }

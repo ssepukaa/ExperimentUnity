@@ -1,23 +1,25 @@
-using Assets.Game.Scripts.Bases.Interfaces;
 using UnityEngine;
 
 namespace Assets.Game.Scripts.GameC.GameStates
 {
-    public class MenuGameState : IGameState
-    {
-        public void Enter()
+    public class MenuGameState: BaseGameState {
+        public override void Enter()
         {
             Debug.Log("Enter MenuGameState");
         }
 
-        public void Exit()
+        public override void Exit()
         {
             Debug.Log("Exit MenuGameState");
         }
 
-        public void Execute()
+        public override void Execute()
         {
             Debug.Log("Execute MenuGameState");
+        }
+
+        public MenuGameState(GameController gameController) : base(gameController)
+        {
         }
     }
 }

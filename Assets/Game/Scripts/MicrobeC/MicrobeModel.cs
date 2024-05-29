@@ -1,4 +1,5 @@
 ﻿using Assets.Game.Scripts.Bases.BaseModels;
+using Assets.Game.Scripts.Data.Constants;
 using Newtonsoft.Json;
 using UnityEngine;
 
@@ -7,7 +8,7 @@ namespace Assets.Game.Scripts.MicrobeC {
     [System.Serializable]
     public class MicrobeModel : BaseModel {
         public MicrobeModel() {
-            PrefabReference = "Assets/Game/Prefabs/Units/MicrobePrefab.prefab";
+            PrefabReference = ResourceConstants.MicrobePrefab;
         }
 
         [JsonProperty("health")]

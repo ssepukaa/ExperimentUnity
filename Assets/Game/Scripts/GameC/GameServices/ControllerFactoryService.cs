@@ -11,31 +11,33 @@ using UnityEngine.AddressableAssets;
 
 namespace Assets.Game.Scripts.GameC.GameServices {
     [Serializable]
-    public class ControllerFactoryService : IGameService {
-        [SerializeField] private List<IController> _controllers;
-        [SerializeField] private List<BaseView> _views; // Добавление списка View
-        [SerializeField] private List<IUpdatable> _updatableControllers;
-        [SerializeField] private List<IFixedUpdatable> _fixedUpdatableControllers;
-        [SerializeField] private List<ILateUpdatable> _lateUpdatableControllers;
+    public class ControllerFactoryService : BaseGameService {
+        [SerializeReference] private List<BaseController> _controllers;
+        [SerializeReference] private List<BaseView> _views; // Добавление списка View
+        [SerializeReference] private List<IUpdatable> _updatableControllers;
+        [SerializeReference] private List<IFixedUpdatable> _fixedUpdatableControllers;
+        [SerializeReference] private List<ILateUpdatable> _lateUpdatableControllers;
 
         private Transform _parentTransform;
 
         public ControllerFactoryService() {
-            _controllers = new List<IController>();
+            _controllers = new List<BaseController>();
             _views = new List<BaseView>();
             _updatableControllers = new List<IUpdatable>();
             _fixedUpdatableControllers = new List<IFixedUpdatable>();
             _lateUpdatableControllers = new List<ILateUpdatable>();
 
+           
+        }
+
+        public List<BaseController> Controllers => _controllers;
+
+        public void CreateNewListControllers(List<BaseModel> models) {
             // Создаем родительский объект в точке (0, 0, 0) и задаем ему имя
             GameObject parentGameObject = new GameObject("SpawnedObjects");
             parentGameObject.transform.position = Vector3.zero;
             _parentTransform = parentGameObject.transform;
-        }
 
-        public List<IController> Controllers => _controllers;
-
-        public void CreateNewListControllers(List<IModel> models) {
             Controllers.Clear();
             _views.Clear();
             _updatableControllers.Clear();
@@ -47,7 +49,7 @@ namespace Assets.Game.Scripts.GameC.GameServices {
             }
         }
 
-        public void AddController(IController controller) {
+        public void AddController(BaseController controller) {
             Controllers.Add(controller);
             if (controller is IUpdatable updatableController) {
                 _updatableControllers.Add(updatableController);
@@ -62,7 +64,7 @@ namespace Assets.Game.Scripts.GameC.GameServices {
           
         }
 
-        public void RemoveController(IController controller) {
+        public void RemoveController(BaseController controller) {
             Controllers.Remove(controller);
             if (controller is IUpdatable updatableController) {
                 _updatableControllers.Remove(updatableController);
@@ -90,7 +92,7 @@ namespace Assets.Game.Scripts.GameC.GameServices {
             return _lateUpdatableControllers;
         }
 
-        public IController CreateController(IModel model) {
+        public BaseController CreateController(BaseModel model) {
             var prefab = Addressables.LoadAssetAsync<GameObject>(model.PrefabReference).WaitForCompletion();
             if (prefab == null) {
                 throw new ArgumentException("Prefab not found: " + model.PrefabReference);
@@ -107,12 +109,12 @@ namespace Assets.Game.Scripts.GameC.GameServices {
                 controller.SetView(view);
                 return controller;
             }
-            // Добавление View
-            AddView(view);
+            // // Добавление View
+            // AddView(view);
             throw new ArgumentException("Unknown model type");
         }
 
-        private void AddView(BaseView gameObject) {
+        public void AddView(BaseView gameObject) {
             var view = gameObject.GetComponent<BaseView>();
             if (view != null) {
                 _views.Add(view);

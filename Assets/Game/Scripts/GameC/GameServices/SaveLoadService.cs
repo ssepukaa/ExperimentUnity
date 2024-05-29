@@ -6,15 +6,15 @@ using Newtonsoft.Json;
 using UnityEngine;
 
 namespace Assets.Game.Scripts.GameC.GameServices {
-    public class SaveLoadService : IGameService {
+    public class SaveLoadService : BaseGameService {
         private readonly string saveFilePath;
 
         public SaveLoadService() {
             saveFilePath = Path.Combine(Application.persistentDataPath, "saveData.json");
         }
 
-        public void Save(List<IController> controllers) {
-            List<IModel> models = new List<IModel>();
+        public void Save(List<BaseController> controllers) {
+            List<BaseModel> models = new List<BaseModel>();
             foreach (var controller in controllers) {
                 models.Add(controller.Model);
             }
@@ -33,7 +33,7 @@ namespace Assets.Game.Scripts.GameC.GameServices {
             File.WriteAllText(saveFilePath, jsonData);
         }
 
-        public List<IModel> Load() {
+        public List<BaseModel> Load() {
             if (!File.Exists(saveFilePath)) {
                 return null;
             }
@@ -48,7 +48,7 @@ namespace Assets.Game.Scripts.GameC.GameServices {
                 }
             };
 
-            return JsonConvert.DeserializeObject<List<IModel>>(jsonData, settings);
+            return JsonConvert.DeserializeObject<List<BaseModel>>(jsonData, settings);
         }
     }
 }

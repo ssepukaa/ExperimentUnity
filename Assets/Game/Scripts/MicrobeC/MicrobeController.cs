@@ -1,9 +1,11 @@
 ﻿using Assets.Game.Scripts.Bases.BaseControllers;
 using Assets.Game.Scripts.Bases.Interfaces;
+using UnityEngine;
 
 namespace Assets.Game.Scripts.MicrobeC {
+    [System.Serializable]
     public class MicrobeController : BaseController,IUpdatable {
-        private MicrobeModel _model;
+        [SerializeField] protected MicrobeModel _model;
 
         public MicrobeController(MicrobeModel model) : base(model) {
             _model = model;

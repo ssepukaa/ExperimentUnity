@@ -6,19 +6,20 @@ using Assets.Game.Scripts.PlayerC;
 using UnityEngine;
 
 namespace Assets.Game.Scripts.GameC.GameServices {
-    public class LevelGenerationService : IGameService {
+    public class LevelGenerationService : BaseGameService {
         private GameConfig _gameConfig;
-        private RandomService _randomService;
+        private IGameController _gameController;
         private float _minDistanceBetweenMicrobes;
 
-        public LevelGenerationService(GameConfig gameConfig, RandomService randomService, float minDistanceBetweenMicrobes) {
+        public LevelGenerationService(IGameController gameController,GameConfig gameConfig, float minDistanceBetweenMicrobes)
+        {
+            _gameController = gameController;
             _gameConfig = gameConfig;
-            _randomService = randomService;
             _minDistanceBetweenMicrobes = minDistanceBetweenMicrobes;
         }
 
-        public List<IModel> GenerateInitialModels() {
-            var models = new List<IModel>();
+        public List<BaseModel> GenerateInitialModels() {
+            var models = new List<BaseModel>();
 
             // Генерация игрока
             var playerModel = new PlayerModel {
@@ -26,20 +27,21 @@ namespace Assets.Game.Scripts.GameC.GameServices {
                 Position = new Vector3(0, 0, 0), // Задайте начальную позицию игрока
                 Rotation = Quaternion.identity,
                 Scale = Vector3.one,
-                Health = 100 // Начальное значение здоровья игрока
+                Health = 100, // Начальное значение здоровья игрока
+                Speed = 5f
             };
             models.Add(playerModel);
 
             // Генерация микробов
             var levelConfig = _gameConfig.levels[0]; // Пример использования первого уровня из конфигурации
-            int microbeCount = _randomService.RandomRange(levelConfig.minMicrobeCount, levelConfig.maxMicrobeCount);
+            int microbeCount = _gameController.RandomService.RandomRange(levelConfig.minMicrobeCount, levelConfig.maxMicrobeCount);
 
             for (int i = 0; i < microbeCount; i++) {
                 Vector3 position;
                 bool positionIsValid;
 
                 do {
-                    position = _randomService.RandomPosition(levelConfig.worldSize);
+                    position = _gameController.RandomService.RandomPosition(levelConfig.worldSize);
                     positionIsValid = true;
 
                     foreach (var model in models) {

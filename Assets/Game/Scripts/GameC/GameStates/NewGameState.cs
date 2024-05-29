@@ -3,21 +3,25 @@ using UnityEngine;
 
 namespace Assets.Game.Scripts.GameC.GameStates
 {
-    public class NewGameState : IGameState
+    public class NewGameState : BaseGameState
     {
-        public void Enter()
+        public override void Enter()
         {
             Debug.Log("Enter NewGameState");
         }
 
-        public void Exit()
+        public override void Exit()
         {
             Debug.Log("Exit NewGameState");
         }
 
-        public void Execute()
+        public override void Execute()
         {
             Debug.Log("Execute NewGameState");
+        }
+
+        public NewGameState(GameController gameController) : base(gameController)
+        {
         }
     }
 }

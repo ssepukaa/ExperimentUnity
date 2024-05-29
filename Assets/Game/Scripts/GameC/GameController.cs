@@ -1,31 +1,38 @@
 ﻿using System.Collections.Generic;
 using Assets.Game.Scripts.Bases.BaseControllers;
 using Assets.Game.Scripts.Bases.BaseModels;
-using Assets.Game.Scripts.Bases.BaseViews;
-using Assets.Game.Scripts.Bases.Interfaces;
 using Assets.Game.Scripts.Data;
 using Assets.Game.Scripts.GameC.GameServices;
 using Assets.Game.Scripts.GameC.GameStates;
 using UnityEngine;
 
 namespace Assets.Game.Scripts.GameC {
-    public class GameController : MonoBehaviour, IGame, IController {
+
+    public class GameController : MonoBehaviour, IGameController {
         public static GameController Instance;
         public string Id => "Game";
 
-        public IModel Model => _model;
-        public BaseView View { get; }
+        public GameModel Model => _model;
+        public GameView View => _view;
 
-        [SerializeReference] private List<IModel> _models;
-        [SerializeReference] private List<IGameService> _services;
-       
+        [SerializeReference] private List<BaseModel> _models;
+        [SerializeReference] private List<BaseGameService> _services;
+
 
         [SerializeField] private GameConfig _gameConfig;
 
-        private IGameState _currentGameState;
-        private IGameState _previousGameState;
-        private IModel _model;
-        private List<IGameState> _states = new List<IGameState>();
+        private BaseGameState _currentGameState;
+        private BaseGameState _previousGameState;
+        private GameModel _model = new GameModel();
+        private GameView _view;
+        private List<BaseGameState> _states = new List<BaseGameState>();
+        private RandomService _randomService;
+        private SaveLoadService _saveLoadService;
+        private ControllerFactoryService _controllerService;
+        private LevelGenerationService _levelGenerateService;
+        private AnimationPoolService _animationSevrvice;
+
+        public RandomService RandomService => GetService<RandomService>();
 
         private void Awake() {
             if (Instance == null) {
@@ -37,26 +44,31 @@ namespace Assets.Game.Scripts.GameC {
         }
 
         private void Start() {
-            InitializeGameStates();
+            _view = GetComponent<GameView>();
             InitializeGameServices();
+            InitializeGameStates();
+            Invoke("LoadingGame",1f);
+            
+        }
+
+        private void LoadingGame()
+        {
             ChangeGameState<LoadingGameState>();
         }
 
+        private void InitializeGameServices() {
+
+            _services = new List<BaseGameService>();
+            _services.Add(_randomService = new RandomService());
+            _services.Add(_saveLoadService = new SaveLoadService());
+            _services.Add(_controllerService = new ControllerFactoryService());
+            _services.Add(_levelGenerateService = new LevelGenerationService(this, _gameConfig, 10f)); // Передаем конфигурацию и сервис случайных чисел
+            _services.Add(_animationSevrvice = new AnimationPoolService());
+        }
         private void InitializeGameStates() {
             _states.Add(new LoadingGameState(this));
             _states.Add(new GameplayGameState(this));
             _states.Add(new PausedGameState(this));
-        }
-
-        private void InitializeGameServices() {
-            var randomService = new RandomService();
-            _services = new List<IGameService>
-            {
-                new SaveLoadService(),
-                new ControllerFactoryService(),
-                new LevelGenerationService(_gameConfig, randomService, 2f), // Передаем конфигурацию и сервис случайных чисел
-                randomService
-            };
         }
 
         private void Update() {
@@ -99,7 +111,7 @@ namespace Assets.Game.Scripts.GameC {
             }
         }
 
-        public void ChangeGameState<T>() where T : IGameState {
+        public void ChangeGameState<T>() where T : BaseGameState {
             var stateType = typeof(T);
             var newState = _states.Find(state => state.GetType() == stateType);
             if (newState != null) {
@@ -117,32 +129,36 @@ namespace Assets.Game.Scripts.GameC {
             }
         }
 
-        public void CreateNewListControllers(List<IModel> models) {
+        public void CreateNewListControllers(List<BaseModel> models) {
+            _models = models;
             var controllerFactory = GetService<ControllerFactoryService>();
             controllerFactory.CreateNewListControllers(models);
         }
         // Новый метод для создания контроллеров на основании конфига
 
-        public void AddController(IController controller) {
+        public void AddController(BaseController controller) {
             var controllerFactory = GetService<ControllerFactoryService>();
             controllerFactory.AddController(controller);
             var view = (controller as BaseController)?.View;
-            
+
         }
 
-        public void RemoveController(IController controller) {
+        public void RemoveController(BaseController controller) {
             var controllerFactory = GetService<ControllerFactoryService>();
             controllerFactory.RemoveController(controller);
             var view = (controller as BaseController)?.View;
-            
+
         }
-        public T GetService<T>() where T : IGameService {
+        public T GetService<T>() where T : BaseGameService {
             return (T)_services.Find(service => service is T);
         }
 
-        public void Save()
-        {
+        public void Save() {
             GetService<SaveLoadService>().Save(GetService<ControllerFactoryService>().Controllers);
+        }
+
+        public IAnimationService GetAnimationService() {
+            return GetService<AnimationPoolService>();
         }
     }
 }

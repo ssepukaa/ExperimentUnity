@@ -4,7 +4,7 @@ using UnityEngine;
 namespace Assets.Game.Scripts.Bases.BaseModels {
     [JsonObject(MemberSerialization.OptIn)]
     [System.Serializable]
-    public abstract class BaseModel : IModel {
+    public abstract class BaseModel {
         [JsonProperty("id")]
         [SerializeField] private string id;
 

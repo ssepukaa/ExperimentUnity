@@ -3,7 +3,7 @@ using UnityEngine;
 
 namespace Assets.Game.Scripts.GameC.GameStates
 {
-    public abstract class BaseGameState : IGameState
+    public abstract class BaseGameState
     {
         public GameController GameController;
 
