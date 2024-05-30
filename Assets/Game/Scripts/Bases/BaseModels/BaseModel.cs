@@ -1,4 +1,5 @@
-﻿using Newtonsoft.Json;
+﻿using Assets.Game.Scripts.Data;
+using Newtonsoft.Json;
 using UnityEngine;
 
 namespace Assets.Game.Scripts.Bases.BaseModels {
@@ -7,6 +8,9 @@ namespace Assets.Game.Scripts.Bases.BaseModels {
     public abstract class BaseModel {
         [JsonProperty("id")]
         [SerializeField] private string id;
+
+        [JsonProperty("type")]
+        [SerializeField] private MicrobeType type;
 
         [JsonProperty("position")]
         [SerializeField] private Vector3 position;
@@ -17,12 +21,15 @@ namespace Assets.Game.Scripts.Bases.BaseModels {
         [JsonProperty("scale")]
         [SerializeField] private Vector3 scale;
 
-        [JsonProperty("prefabReference")]
-        [SerializeField] private string prefabReference;
+       
 
         public string Id {
             get => id;
             set => id = value;
+        } 
+        public MicrobeType Type {
+            get => type;
+            set => type = value;
         }
 
         public Vector3 Position {
@@ -40,9 +47,5 @@ namespace Assets.Game.Scripts.Bases.BaseModels {
             set => scale = value;
         }
 
-        public string PrefabReference {
-            get => prefabReference;
-            set => prefabReference = value;
-        }
     }
 }

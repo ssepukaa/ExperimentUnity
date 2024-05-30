@@ -33,7 +33,7 @@ namespace Assets.Game.Scripts.GameC.GameServices {
             models.Add(playerModel);
 
             // Генерация микробов
-            var levelConfig = _gameConfig.levels[0]; // Пример использования первого уровня из конфигурации
+            var levelConfig = _gameConfig.Levels[0]; // Пример использования первого уровня из конфигурации
             int microbeCount = _gameController.RandomService.RandomRange(levelConfig.minMicrobeCount, levelConfig.maxMicrobeCount);
 
             for (int i = 0; i < microbeCount; i++) {

@@ -34,6 +34,8 @@ namespace Assets.Game.Scripts.GameC {
 
         public RandomService RandomService => GetService<RandomService>();
 
+        public GameConfig Config => _gameConfig;
+
         private void Awake() {
             if (Instance == null) {
                 Instance = this;
@@ -41,18 +43,19 @@ namespace Assets.Game.Scripts.GameC {
             } else {
                 Destroy(gameObject);
             }
+
+            _gameConfig = new GameConfig();
         }
 
         private void Start() {
             _view = GetComponent<GameView>();
             InitializeGameServices();
             InitializeGameStates();
-            Invoke("LoadingGame",1f);
-            
+            Invoke("LoadingGame", 1f);
+
         }
 
-        private void LoadingGame()
-        {
+        private void LoadingGame() {
             ChangeGameState<LoadingGameState>();
         }
 
@@ -61,8 +64,8 @@ namespace Assets.Game.Scripts.GameC {
             _services = new List<BaseGameService>();
             _services.Add(_randomService = new RandomService());
             _services.Add(_saveLoadService = new SaveLoadService());
-            _services.Add(_controllerService = new ControllerFactoryService());
-            _services.Add(_levelGenerateService = new LevelGenerationService(this, _gameConfig, 10f)); // Передаем конфигурацию и сервис случайных чисел
+            _services.Add(_controllerService = new ControllerFactoryService(this));
+            _services.Add(_levelGenerateService = new LevelGenerationService(this, Config, 10f)); // Передаем конфигурацию и сервис случайных чисел
             _services.Add(_animationSevrvice = new AnimationPoolService());
         }
         private void InitializeGameStates() {
@@ -157,8 +160,11 @@ namespace Assets.Game.Scripts.GameC {
             GetService<SaveLoadService>().Save(GetService<ControllerFactoryService>().Controllers);
         }
 
-        public IAnimationService GetAnimationService() {
+        public AnimationPoolService GetAnimationService() {
             return GetService<AnimationPoolService>();
+        }
+        public UnitConfig GetUnitConfig(MicrobeType typeName) {
+            return _gameConfig.Units.Find(unit => unit.TypeName == typeName);
         }
     }
 }

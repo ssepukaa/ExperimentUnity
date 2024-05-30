@@ -1,28 +1,49 @@
-﻿using UnityEngine;
-using Assets.Game.Scripts.GameC.GameServices;
-using Assets.Game.Scripts.PlayerC;
-using System.Collections.Generic;
-using Assets.Game.Scripts.Data.Constants;
+﻿using System.Collections.Generic;
+using UnityEngine;
+using Assets.Game.Scripts.Bases.Interfaces;
+using System.Threading.Tasks;
 
 namespace Assets.Game.Scripts.Services.MovementServices {
     public class MovementService {
         private Transform _transform;
         private Animator _animator;
-        private IAnimationService _animationService;
+        private AnimationPoolService _animationService;
         private Vector3? _targetPosition;
         private bool _isAttacking;
         private bool _isMoving;
-        private readonly PlayerModel _model;
-        private Dictionary<string, int> _animationHashes;
+        private readonly IMovable _movable;
+        private Dictionary<string, AnimationClip> _animations;
         private int _currentAnimationHash;
 
-        public MovementService(Transform transform, PlayerModel model, Animator animator, IAnimationService animationService) {
+        public MovementService(Transform transform, IMovable movable, Animator animator, AnimationPoolService animationService) {
             _transform = transform;
-            _model = model;
+            _movable = movable;
             _animator = animator;
             _animationService = animationService;
-            _animationHashes = new Dictionary<string, int>();
-            _animationService.InitializeAnimator(_animator);
+            _animations = new Dictionary<string, AnimationClip>();
+        }
+
+        public async Task Initialize() {
+            await LoadAnimations();
+            if (_animator != null) {
+                _animationService.InitializeAnimator(_animator);
+            } else {
+                Debug.LogWarning("Animator is null in MovementService.");
+            }
+        }
+
+        private async Task LoadAnimations() {
+            _animations["Idle"] = _animationService.GetAnimationClip("Idle");
+            _animations["Move"] = _animationService.GetAnimationClip("Move");
+            _animations["Attack"] = _animationService.GetAnimationClip("Attack");
+
+            foreach (var animation in _animations) {
+                if (animation.Value == null) {
+                    Debug.LogWarning($"Animation clip for {animation.Key} is not loaded.");
+                } else {
+                    Debug.Log($"Animation clip for {animation.Key} is loaded successfully.");
+                }
+            }
         }
 
         public void SetTarget(Vector3 targetPosition) {
@@ -38,11 +59,8 @@ namespace Assets.Game.Scripts.Services.MovementServices {
             if (_targetPosition.HasValue) {
                 Vector3 direction = (_targetPosition.Value - _transform.position).normalized;
                 if (Vector3.Distance(_transform.position, _targetPosition.Value) > 0.1f) {
-                    _transform.position = Vector3.MoveTowards(_transform.position, _targetPosition.Value, _model.Speed * Time.deltaTime);
+                    _transform.position = Vector3.MoveTowards(_transform.position, _targetPosition.Value, _movable.Speed * Time.deltaTime);
                     RotateTowards(direction);
-                    if (!_isAttacking && !_animator.GetCurrentAnimatorStateInfo(0).IsName("amoeba_attack")) {
-                        PlayMoveAnimation();
-                    }
                 } else {
                     _targetPosition = null;
                     if (!_isAttacking) {
@@ -57,63 +75,66 @@ namespace Assets.Game.Scripts.Services.MovementServices {
         }
 
         private void PlayMoveAnimation() {
-            PlayAnimation(ResourceConstants.AmoebaMove);
+            if (_animations.TryGetValue("Move", out var moveClip)) {
+                PlayAnimation(moveClip);
+            } else {
+                Debug.LogWarning("Move animation clip not found.");
+            }
         }
 
         private void RotateTowards(Vector3 direction) {
             if (direction != Vector3.zero) {
                 Quaternion targetRotation = Quaternion.LookRotation(Vector3.forward, direction);
-                _transform.rotation = Quaternion.Slerp(_transform.rotation, targetRotation, _model.Speed * Time.deltaTime);
+                _transform.rotation = Quaternion.Slerp(_transform.rotation, targetRotation, _movable.Speed * Time.deltaTime);
             }
         }
 
         public void PlayIdleAnimation() {
-            PlayAnimation(ResourceConstants.AmoebaIdle);
+            if (_animations.TryGetValue("Idle", out var idleClip)) {
+                PlayAnimation(idleClip);
+            } else {
+                Debug.LogWarning("Idle animation clip not found.");
+            }
             _isMoving = false;
         }
 
         public bool TryPlayAttackAnimation() {
+            Debug.Log($"_isAttacking =={_isAttacking}");
             if (!_isAttacking) {
                 _isAttacking = true;
-                BlendAnimation(ResourceConstants.AmoebaAttack, 0.5f); // Время смешивания 0.5 секунд
-                return true;
+                if (_animations.TryGetValue("Attack", out var attackClip)) {
+                    BlendAnimation(attackClip, 0.5f); // Время смешивания 0.5 секунд
+                    return true;
+                } else {
+                    Debug.LogWarning("Attack animation clip not found.");
+                }
             }
             return false;
         }
 
-        private void PlayAnimation(string animationName) {
-            if (!_animationHashes.ContainsKey(animationName)) {
-                var clip = _animationService.GetAnimationClip(animationName);
-                if (clip != null) {
-                    _animationHashes[animationName] = Animator.StringToHash(clip.name);
-                } else {
-                    Debug.LogWarning($"Animation clip not found for key: {animationName}");
-                    return;
-                }
+        private void PlayAnimation(AnimationClip clip) {
+            if (clip == null) {
+                Debug.LogWarning($"Clip is null, cannot play animation.");
+                return;
             }
-            int animationHash = _animationHashes[animationName];
+            int animationHash = Animator.StringToHash(clip.name);
             if (_currentAnimationHash != animationHash) {
                 _animator.Play(animationHash);
                 _currentAnimationHash = animationHash;
-                Debug.Log($"Playing animation: {animationName}");
+                Debug.Log($"Playing animation: {clip.name}");
             }
         }
 
-        private void BlendAnimation(string animationName, float blendDuration) {
-            if (!_animationHashes.ContainsKey(animationName)) {
-                var clip = _animationService.GetAnimationClip(animationName);
-                if (clip != null) {
-                    _animationHashes[animationName] = Animator.StringToHash(clip.name);
-                } else {
-                    Debug.LogWarning($"Animation clip not found for key: {animationName}");
-                    return;
-                }
+        private void BlendAnimation(AnimationClip clip, float blendDuration) {
+            if (clip == null) {
+                Debug.LogWarning($"Clip is null, cannot blend animation.");
+                return;
             }
-            int animationHash = _animationHashes[animationName];
+            int animationHash = Animator.StringToHash(clip.name);
             if (_currentAnimationHash != animationHash) {
                 _animator.CrossFadeInFixedTime(animationHash, blendDuration);
                 _currentAnimationHash = animationHash;
-                Debug.Log($"Blending to animation: {animationName}");
+                Debug.Log($"Blending to animation: {clip.name}");
             }
         }
 

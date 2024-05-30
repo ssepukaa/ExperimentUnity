@@ -12,6 +12,7 @@ using UnityEngine.AddressableAssets;
 namespace Assets.Game.Scripts.GameC.GameServices {
     [Serializable]
     public class ControllerFactoryService : BaseGameService {
+        private GameController _game;
         [SerializeReference] private List<BaseController> _controllers;
         [SerializeReference] private List<BaseView> _views; // Добавление списка View
         [SerializeReference] private List<IUpdatable> _updatableControllers;
@@ -19,18 +20,19 @@ namespace Assets.Game.Scripts.GameC.GameServices {
         [SerializeReference] private List<ILateUpdatable> _lateUpdatableControllers;
 
         private Transform _parentTransform;
-
-        public ControllerFactoryService() {
+        public List<BaseController> Controllers => _controllers;
+        public ControllerFactoryService(GameController game) {
+            _game = game;
             _controllers = new List<BaseController>();
             _views = new List<BaseView>();
             _updatableControllers = new List<IUpdatable>();
             _fixedUpdatableControllers = new List<IFixedUpdatable>();
             _lateUpdatableControllers = new List<ILateUpdatable>();
 
-           
+
         }
 
-        public List<BaseController> Controllers => _controllers;
+
 
         public void CreateNewListControllers(List<BaseModel> models) {
             // Создаем родительский объект в точке (0, 0, 0) и задаем ему имя
@@ -61,7 +63,7 @@ namespace Assets.Game.Scripts.GameC.GameServices {
                 _lateUpdatableControllers.Add(lateUpdatableController);
             }
 
-          
+
         }
 
         public void RemoveController(BaseController controller) {
@@ -93,9 +95,10 @@ namespace Assets.Game.Scripts.GameC.GameServices {
         }
 
         public BaseController CreateController(BaseModel model) {
-            var prefab = Addressables.LoadAssetAsync<GameObject>(model.PrefabReference).WaitForCompletion();
+            Debug.Log($"_game.GetUnitConfig(model.Type) =={_game.GetUnitConfig(model.Type)}");
+            var prefab = Addressables.LoadAssetAsync<GameObject>(_game.GetUnitConfig(model.Type).PrefabName).WaitForCompletion();
             if (prefab == null) {
-                throw new ArgumentException("Prefab not found: " + model.PrefabReference);
+                throw new ArgumentException("Prefab not found: " + model.Type);
             }
             var gameObject = UnityEngine.Object.Instantiate(prefab, _parentTransform);
             var view = gameObject.GetComponent<BaseView>();
@@ -127,6 +130,6 @@ namespace Assets.Game.Scripts.GameC.GameServices {
                 _views.Remove(view);
             }
         }
-        
+
     }
 }

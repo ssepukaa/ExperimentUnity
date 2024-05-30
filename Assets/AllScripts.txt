@@ -25,20 +25,110 @@ namespace Assets.Game.Scripts.Boot
 
 
 // File: C:/Unity/Projects2/Experiment/ExperimentUnity/Assets\Game\Scripts\Data\GameConfig.cs
+using System;
 using System.Collections.Generic;
 using UnityEngine;
 
 namespace Assets.Game.Scripts.Data {
-    [CreateAssetMenu(fileName = "GameConfig", menuName = "Game Config")]
-    public class GameConfig : ScriptableObject {
-        [System.Serializable]
-        public class LevelConfig {
-            public Vector3 worldSize;
-            public int minMicrobeCount;
-            public int maxMicrobeCount;
-        }
+    [Serializable]
+    public enum MicrobeType {
+        Chloroplast,
+        Amoeba,
+        GreenEuglena,
+        Infusoria,
+        Chloromonad,
+        Chlorella,
+        Bacteria,
+    }
 
-        [SerializeField] public List<LevelConfig> levels;
+    [Serializable]
+    public class GameConfig {
+        // Prefab References
+        [SerializeField] public  const string PlayerPrefab = "Assets/Game/Prefabs/Units/PlayerPrefab.prefab";
+        [SerializeField] public const string MicrobePrefab = "Assets/Game/Prefabs/Units/MicrobePrefab.prefab";
+        // [SerializeField] public const string AnotherMicrobePrefab = "Assets/Game/Prefabs/Units/AnotherMicrobePrefab.prefab";
+        // [SerializeField] public const string СhloroplastPrefab = "Assets/Game/Prefabs/Units/СhloroplastPrefab.prefab";
+
+        [SerializeField] public readonly List<UnitConfig> Units = new List<UnitConfig> {
+            new UnitConfig()
+            {
+                // Пустой элемент 1
+                TypeName = MicrobeType.Amoeba,
+                PrefabName = PlayerPrefab,
+
+            },
+            new UnitConfig()
+            {
+                // Пустой элемент 2
+                TypeName = MicrobeType.Chloroplast,
+                PrefabName = MicrobePrefab,
+
+            },
+
+        };
+
+        [SerializeField] public readonly List<LevelConfig> Levels = new List<LevelConfig>{
+            new LevelConfig
+            {
+                worldSize = new Vector3(20f,20f,0),
+                minMicrobeCount = 3,
+                maxMicrobeCount = 6
+            },
+
+        };
+
+        // Animation References
+        public readonly Dictionary<MicrobeType, Dictionary<string, string>> AnimationReferences =
+            new Dictionary<MicrobeType, Dictionary<string, string>>
+            {
+                {
+                    MicrobeType.Amoeba, new Dictionary<string, string>
+                    {
+                        { "Idle", "Assets/Game/Animations/amoeba_idle.anim" },
+                        { "Move", "Assets/Game/Animations/amoeba_move.anim" },
+                        { "Attack", "Assets/Game/Animations/amoeba_attack.anim" }
+                    }
+                },
+                {
+                    MicrobeType.Chloroplast, new Dictionary<string, string>
+                    {
+                        { "Idle", "Assets/Game/Animations/amoeba_idle.anim" },
+                        { "Move", "Assets/Game/Animations/amoeba_move.anim" },
+                        { "Attack", "Assets/Game/Animations/amoeba_attack.anim" }
+                    }
+                }
+            };
+
+       
+
+    }
+}
+
+
+
+// File: C:/Unity/Projects2/Experiment/ExperimentUnity/Assets\Game\Scripts\Data\LevelConfig.cs
+using UnityEngine;
+
+namespace Assets.Game.Scripts.Data
+{
+    [System.Serializable]
+    public class LevelConfig {
+        public Vector3 worldSize;
+        public int minMicrobeCount;
+        public int maxMicrobeCount;
+    }
+}
+
+
+
+// File: C:/Unity/Projects2/Experiment/ExperimentUnity/Assets\Game\Scripts\Data\UnitConfig.cs
+namespace Assets.Game.Scripts.Data
+{
+    [System.Serializable]
+    public class UnitConfig {
+        public MicrobeType TypeName;
+        public string PrefabName;
+        //public Dictionary<string, string> Animations;
     }
 }
 
@@ -76,33 +166,40 @@ public class ScriptsCollector : MonoBehaviour {
 using System.Collections.Generic;
 using Assets.Game.Scripts.Bases.BaseControllers;
 using Assets.Game.Scripts.Bases.BaseModels;
-using Assets.Game.Scripts.Bases.BaseViews;
-using Assets.Game.Scripts.Bases.Interfaces;
 using Assets.Game.Scripts.Data;
 using Assets.Game.Scripts.GameC.GameServices;
 using Assets.Game.Scripts.GameC.GameStates;
 using UnityEngine;
 
 namespace Assets.Game.Scripts.GameC {
-    public class GameController : MonoBehaviour, IGame, IController {
+
+    public class GameController : MonoBehaviour, IGameController {
         public static GameController Instance;
         public string Id => "Game";
 
-        public IModel Model => _model;
-        public BaseView View { get; }
+        public GameModel Model => _model;
+        public GameView View => _view;
 
-        [SerializeReference] private List<IModel> _models;
-        [SerializeReference] private List<IGameService> _services;
+        [SerializeReference] private List<BaseModel> _models;
+        [SerializeReference] private List<BaseGameService> _services;
 
 
         [SerializeField] private GameConfig _gameConfig;
 
-        private IGameState _currentGameState;
-        private IGameState _previousGameState;
-        private IModel _model;
-        private List<IGameState> _states = new List<IGameState>();
+        private BaseGameState _currentGameState;
+        private BaseGameState _previousGameState;
+        private GameModel _model = new GameModel();
+        private GameView _view;
+        private List<BaseGameState> _states = new List<BaseGameState>();
+        private RandomService _randomService;
+        private SaveLoadService _saveLoadService;
+        private ControllerFactoryService _controllerService;
+        private LevelGenerationService _levelGenerateService;
+        private AnimationPoolService _animationSevrvice;
 
         public RandomService RandomService => GetService<RandomService>();
+
+        public GameConfig Config => _gameConfig;
 
         private void Awake() {
             if (Instance == null) {
@@ -111,30 +208,35 @@ namespace Assets.Game.Scripts.GameC {
             } else {
                 Destroy(gameObject);
             }
+
+            _gameConfig = new GameConfig();
         }
 
         private void Start() {
-            InitializeGameStates();
+            _view = GetComponent<GameView>();
             InitializeGameServices();
-            ChangeGameState<LoadingGameState>();
+            InitializeGameStates();
+            Invoke("LoadingGame", 1f);
+
         }
 
-        private void InitializeGameStates() {
-            _states.Add(new LoadingGameState(this));
-            _states.Add(new GameplayGameState(this));
-            _states.Add(new PausedGameState(this));
+        private void LoadingGame() {
+            ChangeGameState<LoadingGameState>();
         }
 
         private void InitializeGameServices() {
 
-            _services = new List<IGameService>
-            {
-                new RandomService(),
-                new SaveLoadService(),
-                new ControllerFactoryService(),
-                new LevelGenerationService(_gameConfig, 10f), // Передаем конфигурацию и сервис случайных чисел
-                new AnimationPoolService(),
-            };
+            _services = new List<BaseGameService>();
+            _services.Add(_randomService = new RandomService());
+            _services.Add(_saveLoadService = new SaveLoadService());
+            _services.Add(_controllerService = new ControllerFactoryService(this));
+            _services.Add(_levelGenerateService = new LevelGenerationService(this, Config, 10f)); // Передаем конфигурацию и сервис случайных чисел
+            _services.Add(_animationSevrvice = new AnimationPoolService());
+        }
+        private void InitializeGameStates() {
+            _states.Add(new LoadingGameState(this));
+            _states.Add(new GameplayGameState(this));
+            _states.Add(new PausedGameState(this));
         }
 
         private void Update() {
@@ -177,7 +279,7 @@ namespace Assets.Game.Scripts.GameC {
             }
         }
 
-        public void ChangeGameState<T>() where T : IGameState {
+        public void ChangeGameState<T>() where T : BaseGameState {
             var stateType = typeof(T);
             var newState = _states.Find(state => state.GetType() == stateType);
             if (newState != null) {
@@ -195,26 +297,27 @@ namespace Assets.Game.Scripts.GameC {
             }
         }
 
-        public void CreateNewListControllers(List<IModel> models) {
+        public void CreateNewListControllers(List<BaseModel> models) {
+            _models = models;
             var controllerFactory = GetService<ControllerFactoryService>();
             controllerFactory.CreateNewListControllers(models);
         }
         // Новый метод для создания контроллеров на основании конфига
 
-        public void AddController(IController controller) {
+        public void AddController(BaseController controller) {
             var controllerFactory = GetService<ControllerFactoryService>();
             controllerFactory.AddController(controller);
             var view = (controller as BaseController)?.View;
 
         }
 
-        public void RemoveController(IController controller) {
+        public void RemoveController(BaseController controller) {
             var controllerFactory = GetService<ControllerFactoryService>();
             controllerFactory.RemoveController(controller);
             var view = (controller as BaseController)?.View;
 
         }
-        public T GetService<T>() where T : IGameService {
+        public T GetService<T>() where T : BaseGameService {
             return (T)_services.Find(service => service is T);
         }
 
@@ -222,8 +325,11 @@ namespace Assets.Game.Scripts.GameC {
             GetService<SaveLoadService>().Save(GetService<ControllerFactoryService>().Controllers);
         }
 
-        public IAnimationService GetAnimationService() {
+        public AnimationPoolService GetAnimationService() {
             return GetService<AnimationPoolService>();
+        }
+        public UnitConfig GetUnitConfig(MicrobeType typeName) {
+            return _gameConfig.Units.Find(unit => unit.TypeName == typeName);
         }
     }
 }
@@ -243,12 +349,24 @@ namespace Assets.Game.Scripts.GameC
 
 
 
-// File: C:/Unity/Projects2/Experiment/ExperimentUnity/Assets\Game\Scripts\GameC\IGame.cs
+// File: C:/Unity/Projects2/Experiment/ExperimentUnity/Assets\Game\Scripts\GameC\GameView.cs
+using Assets.Game.Scripts.Bases.BaseViews;
+
+namespace Assets.Game.Scripts.GameC
+{
+    public class GameView: BaseView
+    {
+    }
+}
+
+
+
+// File: C:/Unity/Projects2/Experiment/ExperimentUnity/Assets\Game\Scripts\GameC\IGameController.cs
 using Assets.Game.Scripts.GameC.GameServices;
 
 namespace Assets.Game.Scripts.GameC
 {
-    public interface IGame
+    public interface IGameController
     {
         RandomService RandomService { get; }
     }
@@ -259,10 +377,12 @@ namespace Assets.Game.Scripts.GameC
 // File: C:/Unity/Projects2/Experiment/ExperimentUnity/Assets\Game\Scripts\MicrobeC\MicrobeController.cs
 using Assets.Game.Scripts.Bases.BaseControllers;
 using Assets.Game.Scripts.Bases.Interfaces;
+using UnityEngine;
 
 namespace Assets.Game.Scripts.MicrobeC {
+    [System.Serializable]
     public class MicrobeController : BaseController,IUpdatable {
-        private MicrobeModel _model;
+        [SerializeField] protected MicrobeModel _model;
 
         public MicrobeController(MicrobeModel model) : base(model) {
             _model = model;
@@ -279,7 +399,7 @@ namespace Assets.Game.Scripts.MicrobeC {
 
 // File: C:/Unity/Projects2/Experiment/ExperimentUnity/Assets\Game\Scripts\MicrobeC\MicrobeModel.cs
 using Assets.Game.Scripts.Bases.BaseModels;
-using Assets.Game.Scripts.Data.Constants;
+using Assets.Game.Scripts.Data;
 using Newtonsoft.Json;
 using UnityEngine;
 
@@ -288,15 +408,21 @@ namespace Assets.Game.Scripts.MicrobeC {
     [System.Serializable]
     public class MicrobeModel : BaseModel {
         public MicrobeModel() {
-            PrefabReference = ResourceConstants.MicrobePrefab;
+            Speed = 3;
+            Type = MicrobeType.Chloroplast;
         }
-
         [JsonProperty("health")]
         [SerializeField] private float health;
+        [JsonProperty("speed")]
+        [SerializeField] private float speed;
 
         public float Health {
             get => health;
             set => health = value;
+        }
+        public float Speed {
+            get => speed;
+            set => speed = value;
         }
     }
 }
@@ -320,14 +446,16 @@ namespace Assets.Game.Scripts.MicrobeC {
 using System.Collections;
 using Assets.Game.Scripts.Bases.BaseControllers;
 using Assets.Game.Scripts.Bases.Interfaces;
+using Assets.Game.Scripts.Data;
 using Assets.Game.Scripts.GameC;
 using Assets.Game.Scripts.Services.InputServices;
 using Assets.Game.Scripts.Services.MovementServices;
 using UnityEngine;
 
 namespace Assets.Game.Scripts.PlayerC {
+    [System.Serializable]
     public class PlayerController : BaseController, IUpdatable {
-        private PlayerModel _model;
+        [SerializeField] protected PlayerModel _model;
         private IInputService _inputService;
         private MovementService _movementService;
 
@@ -338,8 +466,16 @@ namespace Assets.Game.Scripts.PlayerC {
         protected override void InitServices() {
             base.InitServices();
             _inputService = Application.isMobilePlatform ? new MobileInputService() : new DesktopInputService();
-            var animationService = GameController.Instance.GetAnimationService();
-            _movementService = new MovementService(_view.transform, _model.Speed, _view.GetComponent<Animator>(), animationService);
+            var animationService = GameController.Instance.GetService<AnimationPoolService>();
+
+            // Получаем словарь с анимациями для данного типа микроба
+            var animationAddresses = GameController.Instance.Config.AnimationReferences[_model.Type];
+
+            // Передаем словарь в AnimationPoolService для инициализации
+            animationService.Initialize(animationAddresses);
+
+            // Передаем AnimationPoolService в MovementService
+            _movementService = new MovementService(_view.transform, _model, _view.GetComponent<Animator>(), animationService);
             _isInitComplete = true;
         }
 
@@ -355,8 +491,9 @@ namespace Assets.Game.Scripts.PlayerC {
 
             // Пример атаки (замените условие на вашу логику)
             if (Input.GetKeyDown(KeyCode.Space)) {
-                _movementService.PlayAttackAnimation();
-                _view.StartCoroutine(StopAttackAfterDelay(1.0f)); // Замените 1.0f на длительность анимации атаки
+                if (_movementService.TryPlayAttackAnimation()) {
+                    _view.StartCoroutine(StopAttackAfterDelay(1.0f)); // Замените 1.0f на длительность анимации атаки
+                }
             }
         }
 
@@ -369,28 +506,33 @@ namespace Assets.Game.Scripts.PlayerC {
 
 
 
+
 // File: C:/Unity/Projects2/Experiment/ExperimentUnity/Assets\Game\Scripts\PlayerC\PlayerModel.cs
 using Assets.Game.Scripts.Bases.BaseModels;
-using Assets.Game.Scripts.Data.Constants;
+using Assets.Game.Scripts.Bases.Interfaces;
+using Assets.Game.Scripts.Data;
 using Newtonsoft.Json;
 using UnityEngine;
 
 namespace Assets.Game.Scripts.PlayerC {
     [JsonObject(MemberSerialization.OptIn)]
     [System.Serializable]
-    public class PlayerModel : BaseModel {
+    public class PlayerModel : BaseModel, IMovable {
         public PlayerModel() {
-            PrefabReference = ResourceConstants.PlayerPrefab;
+            Speed = 5f;
+            Type = MicrobeType.Amoeba;
         }
 
         [JsonProperty("health")]
         [SerializeField] private float health = 100f;
         [JsonProperty("speed")]
-        [SerializeField] private float speed = 5f;
+        [SerializeField] private float speed;
+
         public float Health {
             get => health;
             set => health = value;
         }
+
         public float Speed {
             get => speed;
             set => speed = value;
@@ -411,42 +553,68 @@ namespace Assets.Game.Scripts.PlayerC {
 
 
 
+// File: C:/Unity/Projects2/Experiment/ExperimentUnity/Assets\Game\Scripts\Tests\TestAnimation.cs
+using UnityEngine;
+
+public class TestAnimation : MonoBehaviour {
+    public Animator animator;
+
+    void Start() {
+        animator = GetComponent<Animator>();
+    }
+
+    void Update() {
+        if (Input.GetKeyDown(KeyCode.Alpha1)) {
+            animator.Play("amoeba_idle");
+        }
+        if (Input.GetKeyDown(KeyCode.Alpha2)) {
+            animator.Play("amoeba_move");
+        }
+        if (Input.GetKeyDown(KeyCode.Alpha3)) {
+            animator.Play("amoeba_attack");
+        }
+    }
+}
+
+
+
 // File: C:/Unity/Projects2/Experiment/ExperimentUnity/Assets\Game\Scripts\Bases\BaseControllers\BaseController.cs
 using Assets.Game.Scripts.Bases.BaseModels;
 using Assets.Game.Scripts.Bases.BaseViews;
+using Assets.Game.Scripts.GameC;
+using Assets.Game.Scripts.GameC.GameServices;
 using UnityEngine;
 
 namespace Assets.Game.Scripts.Bases.BaseControllers {
     [System.Serializable]
-    public abstract class BaseController : IController {
-        protected IModel _model;
+    public abstract class BaseController {
+        protected BaseModel _model;
         //protected BaseModel _baseModel;
-        protected BaseView _view;
+        [SerializeField] protected BaseView _view;
 
-        public string Id => _model.Id;
-        public IModel Model => _model;
+        [SerializeField] public string Id => _model.Id;
+        public BaseModel Model => _model;
         public BaseView View => _view;
         protected bool _isInitComplete;
 
-        protected BaseController(IModel model) {
+        protected BaseController(BaseModel model) {
             _model = model;
 
         }
 
         public void SetView(BaseView view) {
             _view = view;
-            var viewComponent = _view.GetComponent<IView>();
-            if (viewComponent != null) {
-                viewComponent.Initialize(_model);
+           if (view != null) {
+                view.Initialize(_model);
                 GetComponentsOnView();
                 _view.Model = Model;
+                GameController.Instance.GetService<ControllerFactoryService>().AddView(_view);
             }
 
-          
+
         }
 
-        protected virtual void GetComponentsOnView()
-        {
+        protected virtual void GetComponentsOnView() {
             InitServices();
         }
         protected virtual void InitServices() {
@@ -460,32 +628,20 @@ namespace Assets.Game.Scripts.Bases.BaseControllers {
 
 
 
-// File: C:/Unity/Projects2/Experiment/ExperimentUnity/Assets\Game\Scripts\Bases\BaseControllers\IController.cs
-using Assets.Game.Scripts.Bases.BaseModels;
-using Assets.Game.Scripts.Bases.BaseViews;
-
-namespace Assets.Game.Scripts.Bases.BaseControllers
-{
-    public interface IController
-    {
-        string Id { get; }
-        IModel Model { get; }
-        BaseView  View { get; }
-    }
-}
-
-
-
 // File: C:/Unity/Projects2/Experiment/ExperimentUnity/Assets\Game\Scripts\Bases\BaseModels\BaseModel.cs
+using Assets.Game.Scripts.Data;
 using Newtonsoft.Json;
 using UnityEngine;
 
 namespace Assets.Game.Scripts.Bases.BaseModels {
     [JsonObject(MemberSerialization.OptIn)]
     [System.Serializable]
-    public abstract class BaseModel : IModel {
+    public abstract class BaseModel {
         [JsonProperty("id")]
         [SerializeField] private string id;
+
+        [JsonProperty("type")]
+        [SerializeField] private MicrobeType type;
 
         [JsonProperty("position")]
         [SerializeField] private Vector3 position;
@@ -496,12 +652,15 @@ namespace Assets.Game.Scripts.Bases.BaseModels {
         [JsonProperty("scale")]
         [SerializeField] private Vector3 scale;
 
-        [JsonProperty("prefabReference")]
-        [SerializeField] private string prefabReference;
+       
 
         public string Id {
             get => id;
             set => id = value;
+        } 
+        public MicrobeType Type {
+            get => type;
+            set => type = value;
         }
 
         public Vector3 Position {
@@ -519,27 +678,15 @@ namespace Assets.Game.Scripts.Bases.BaseModels {
             set => scale = value;
         }
 
-        public string PrefabReference {
-            get => prefabReference;
-            set => prefabReference = value;
-        }
     }
 }
 
 
 
-// File: C:/Unity/Projects2/Experiment/ExperimentUnity/Assets\Game\Scripts\Bases\BaseModels\IModel.cs
-using UnityEngine;
-
-namespace Assets.Game.Scripts.Bases.BaseModels
-{
-    public interface IModel
-    {
-        string Id { get; set; }
-        string PrefabReference { get; set; }
-        Vector3 Position { get; set; }
-        Quaternion Rotation { get; set; }
-        Vector3 Scale { get; set; }
+// File: C:/Unity/Projects2/Experiment/ExperimentUnity/Assets\Game\Scripts\Bases\BaseModels\IMovable.cs
+namespace Assets.Game.Scripts.Bases.Interfaces {
+    public interface IMovable {
+        float Speed { get; }
     }
 }
 
@@ -551,51 +698,28 @@ using UnityEngine;
 
 namespace Assets.Game.Scripts.Bases.BaseViews {
     [System.Serializable]
-    public abstract class BaseView : MonoBehaviour, IView {
-        [SerializeField] private string _id;
+    public abstract class BaseView : MonoBehaviour {
+        [SerializeField] public string _id;
         //[SerializeField] private BaseModel _model;
-        [SerializeReference] private IModel _model;
+        [SerializeReference] public BaseModel _model;
 
         public string Id {
             get => _id;
             set => _id = value;
         }
 
-        public IModel Model
+        public BaseModel Model
         {
             get => _model;
             set => _model = value;
         }
 
-        public virtual void Initialize(IModel model) {
+        public virtual void Initialize(BaseModel model) {
             Id = model.Id;
             transform.position = model.Position;
             transform.rotation = model.Rotation;
             transform.localScale = model.Scale;
         }
-    }
-}
-
-
-
-// File: C:/Unity/Projects2/Experiment/ExperimentUnity/Assets\Game\Scripts\Bases\BaseViews\IView.cs
-using Assets.Game.Scripts.Bases.BaseModels;
-
-namespace Assets.Game.Scripts.Bases.BaseViews {
-    public interface IView {
-        string Id { get; set; }
-        void Initialize(IModel model);
-    }
-}
-
-
-
-// File: C:/Unity/Projects2/Experiment/ExperimentUnity/Assets\Game\Scripts\Bases\Interfaces\IFactory.cs
-namespace Assets.Game.Scripts.Bases.Interfaces
-{
-    public interface IFactory
-    {
-        void Execute();
     }
 }
 
@@ -607,19 +731,6 @@ namespace Assets.Game.Scripts.Bases.Interfaces
     public interface IFixedUpdatable
     {
         void RunFixed();
-    }
-}
-
-
-
-// File: C:/Unity/Projects2/Experiment/ExperimentUnity/Assets\Game\Scripts\Bases\Interfaces\IGameState.cs
-namespace Assets.Game.Scripts.Bases.Interfaces
-{
-    public interface IGameState
-    {
-        void Enter();
-        void Exit();
-        void Execute();
     }
 }
 
@@ -647,61 +758,50 @@ namespace Assets.Game.Scripts.Bases.Interfaces
 
 
 
-// File: C:/Unity/Projects2/Experiment/ExperimentUnity/Assets\Game\Scripts\Data\Constants\ResourceConstants.cs
-namespace Assets.Game.Scripts.Data.Constants
-{
-    public static class ResourceConstants {
-        // Prefab References
-        public const string PlayerPrefab = "Assets/Game/Prefabs/Units/PlayerPrefab.prefab";
-        public const string MicrobePrefab = "Assets/Game/Prefabs/Units/MicrobePrefab.prefab";
-
-        // Animation References
-        public const string AmoebaIdle = "Assets/Game/Animations/amoeba_idle.anim";
-        public const string AmoebaMove = "Assets/Game/Animations/amoeba_move.anim";
-        public const string AmoebaAttack = "Assets/Game/Animations/amoeba_attack.anim";
-
-    }
-}
-
-
-
 // File: C:/Unity/Projects2/Experiment/ExperimentUnity/Assets\Game\Scripts\GameC\GameServices\AnimationPoolService.cs
 using System.Collections.Generic;
-using Assets.Game.Scripts.Data.Constants;
 using Assets.Game.Scripts.GameC.GameServices;
 using UnityEngine;
 using UnityEngine.AddressableAssets;
 using UnityEngine.ResourceManagement.AsyncOperations;
 
-public class AnimationPoolService : BaseGameService, IAnimationService  {
-    private readonly Dictionary<string, AnimationClip> _animationClips;
+public class AnimationPoolService : BaseGameService {
+    private readonly Dictionary<string, AnimationClip> _animationClips = new Dictionary<string, AnimationClip>();
+    private AnimatorOverrideController _animatorOverrideController;
 
-    public AnimationPoolService() {
-        _animationClips = new Dictionary<string, AnimationClip>();
-        Initialize();
+    public void Initialize(Dictionary<string, string> animationAddresses) {
+        foreach (var animation in animationAddresses) {
+            LoadAnimationClip(animation.Key, animation.Value);
+        }
     }
 
-    private void Initialize() {
-        LoadAnimationClip(ResourceConstants.AmoebaIdle);
-        LoadAnimationClip(ResourceConstants.AmoebaMove);
-        LoadAnimationClip(ResourceConstants.AmoebaAttack);
-    }
-
-    private void LoadAnimationClip(string key) {
-        Addressables.LoadAssetAsync<AnimationClip>(key).Completed += handle => {
-            if (handle.Status == AsyncOperationStatus.Succeeded) {
-                if (!_animationClips.ContainsKey(key)) {
+    private void LoadAnimationClip(string key, string address) {
+        if (!_animationClips.ContainsKey(key)) {
+            Addressables.LoadAssetAsync<AnimationClip>(address).Completed += handle => {
+                if (handle.Status == AsyncOperationStatus.Succeeded) {
                     _animationClips[key] = handle.Result;
+                    Debug.Log($"Loaded animation clip for key: {key} from address: {address}");
+                } else {
+                    Debug.LogWarning($"Failed to load animation clip for key: {key} from address: {address}");
                 }
-            } else {
-                Debug.LogError($"Failed to load animation clip for key: {key}");
-            }
-        };
+            };
+        }
     }
 
     public AnimationClip GetAnimationClip(string key) {
         _animationClips.TryGetValue(key, out var clip);
         return clip;
+    }
+
+    public void InitializeAnimator(Animator animator) {
+        _animatorOverrideController = new AnimatorOverrideController(animator.runtimeAnimatorController);
+        animator.runtimeAnimatorController = _animatorOverrideController;
+    }
+
+    public void SetAnimation(Animator animator, string animationName, AnimationClip clip) {
+        if (_animatorOverrideController != null) {
+            _animatorOverrideController[animationName] = clip;
+        }
     }
 }
 
@@ -711,7 +811,7 @@ public class AnimationPoolService : BaseGameService, IAnimationService  {
 namespace Assets.Game.Scripts.GameC.GameServices
 {
     [System.Serializable]
-    public abstract class BaseGameService: IGameService
+    public abstract class BaseGameService
     {
     }
 }
@@ -733,30 +833,34 @@ using UnityEngine.AddressableAssets;
 namespace Assets.Game.Scripts.GameC.GameServices {
     [Serializable]
     public class ControllerFactoryService : BaseGameService {
-        [SerializeField] private List<IController> _controllers;
-        [SerializeField] private List<BaseView> _views; // Добавление списка View
-        [SerializeField] private List<IUpdatable> _updatableControllers;
-        [SerializeField] private List<IFixedUpdatable> _fixedUpdatableControllers;
-        [SerializeField] private List<ILateUpdatable> _lateUpdatableControllers;
+        private GameController _game;
+        [SerializeReference] private List<BaseController> _controllers;
+        [SerializeReference] private List<BaseView> _views; // Добавление списка View
+        [SerializeReference] private List<IUpdatable> _updatableControllers;
+        [SerializeReference] private List<IFixedUpdatable> _fixedUpdatableControllers;
+        [SerializeReference] private List<ILateUpdatable> _lateUpdatableControllers;
 
         private Transform _parentTransform;
-
-        public ControllerFactoryService() {
-            _controllers = new List<IController>();
+        public List<BaseController> Controllers => _controllers;
+        public ControllerFactoryService(GameController game) {
+            _game = game;
+            _controllers = new List<BaseController>();
             _views = new List<BaseView>();
             _updatableControllers = new List<IUpdatable>();
             _fixedUpdatableControllers = new List<IFixedUpdatable>();
             _lateUpdatableControllers = new List<ILateUpdatable>();
 
+
+        }
+
+
+
+        public void CreateNewListControllers(List<BaseModel> models) {
             // Создаем родительский объект в точке (0, 0, 0) и задаем ему имя
             GameObject parentGameObject = new GameObject("SpawnedObjects");
             parentGameObject.transform.position = Vector3.zero;
             _parentTransform = parentGameObject.transform;
-        }
 
-        public List<IController> Controllers => _controllers;
-
-        public void CreateNewListControllers(List<IModel> models) {
             Controllers.Clear();
             _views.Clear();
             _updatableControllers.Clear();
@@ -768,7 +872,7 @@ namespace Assets.Game.Scripts.GameC.GameServices {
             }
         }
 
-        public void AddController(IController controller) {
+        public void AddController(BaseController controller) {
             Controllers.Add(controller);
             if (controller is IUpdatable updatableController) {
                 _updatableControllers.Add(updatableController);
@@ -780,10 +884,10 @@ namespace Assets.Game.Scripts.GameC.GameServices {
                 _lateUpdatableControllers.Add(lateUpdatableController);
             }
 
-          
+
         }
 
-        public void RemoveController(IController controller) {
+        public void RemoveController(BaseController controller) {
             Controllers.Remove(controller);
             if (controller is IUpdatable updatableController) {
                 _updatableControllers.Remove(updatableController);
@@ -811,10 +915,11 @@ namespace Assets.Game.Scripts.GameC.GameServices {
             return _lateUpdatableControllers;
         }
 
-        public IController CreateController(IModel model) {
-            var prefab = Addressables.LoadAssetAsync<GameObject>(model.PrefabReference).WaitForCompletion();
+        public BaseController CreateController(BaseModel model) {
+            Debug.Log($"_game.GetUnitConfig(model.Type) =={_game.GetUnitConfig(model.Type)}");
+            var prefab = Addressables.LoadAssetAsync<GameObject>(_game.GetUnitConfig(model.Type).PrefabName).WaitForCompletion();
             if (prefab == null) {
-                throw new ArgumentException("Prefab not found: " + model.PrefabReference);
+                throw new ArgumentException("Prefab not found: " + model.Type);
             }
             var gameObject = UnityEngine.Object.Instantiate(prefab, _parentTransform);
             var view = gameObject.GetComponent<BaseView>();
@@ -828,12 +933,12 @@ namespace Assets.Game.Scripts.GameC.GameServices {
                 controller.SetView(view);
                 return controller;
             }
-            // Добавление View
-            AddView(view);
+            // // Добавление View
+            // AddView(view);
             throw new ArgumentException("Unknown model type");
         }
 
-        private void AddView(BaseView gameObject) {
+        public void AddView(BaseView gameObject) {
             var view = gameObject.GetComponent<BaseView>();
             if (view != null) {
                 _views.Add(view);
@@ -846,32 +951,10 @@ namespace Assets.Game.Scripts.GameC.GameServices {
                 _views.Remove(view);
             }
         }
-        
+
     }
 }
 
-
-
-
-// File: C:/Unity/Projects2/Experiment/ExperimentUnity/Assets\Game\Scripts\GameC\GameServices\IAnimationService.cs
-using UnityEngine;
-
-namespace Assets.Game.Scripts.GameC.GameServices
-{
-    public interface IAnimationService {
-        AnimationClip GetAnimationClip(string key);
-    }
-}
-
-
-
-// File: C:/Unity/Projects2/Experiment/ExperimentUnity/Assets\Game\Scripts\GameC\GameServices\IGameService.cs
-namespace Assets.Game.Scripts.GameC.GameServices
-{
-    public interface IGameService
-    {
-    }
-}
 
 
 
@@ -886,16 +969,18 @@ using UnityEngine;
 namespace Assets.Game.Scripts.GameC.GameServices {
     public class LevelGenerationService : BaseGameService {
         private GameConfig _gameConfig;
-        private IGame Game;
+        private IGameController _gameController;
         private float _minDistanceBetweenMicrobes;
 
-        public LevelGenerationService(GameConfig gameConfig, float minDistanceBetweenMicrobes) {
+        public LevelGenerationService(IGameController gameController,GameConfig gameConfig, float minDistanceBetweenMicrobes)
+        {
+            _gameController = gameController;
             _gameConfig = gameConfig;
             _minDistanceBetweenMicrobes = minDistanceBetweenMicrobes;
         }
 
-        public List<IModel> GenerateInitialModels() {
-            var models = new List<IModel>();
+        public List<BaseModel> GenerateInitialModels() {
+            var models = new List<BaseModel>();
 
             // Генерация игрока
             var playerModel = new PlayerModel {
@@ -903,20 +988,21 @@ namespace Assets.Game.Scripts.GameC.GameServices {
                 Position = new Vector3(0, 0, 0), // Задайте начальную позицию игрока
                 Rotation = Quaternion.identity,
                 Scale = Vector3.one,
-                Health = 100 // Начальное значение здоровья игрока
+                Health = 100, // Начальное значение здоровья игрока
+                Speed = 5f
             };
             models.Add(playerModel);
 
             // Генерация микробов
-            var levelConfig = _gameConfig.levels[0]; // Пример использования первого уровня из конфигурации
-            int microbeCount = Game.RandomService.RandomRange(levelConfig.minMicrobeCount, levelConfig.maxMicrobeCount);
+            var levelConfig = _gameConfig.Levels[0]; // Пример использования первого уровня из конфигурации
+            int microbeCount = _gameController.RandomService.RandomRange(levelConfig.minMicrobeCount, levelConfig.maxMicrobeCount);
 
             for (int i = 0; i < microbeCount; i++) {
                 Vector3 position;
                 bool positionIsValid;
 
                 do {
-                    position = Game.RandomService.RandomPosition(levelConfig.worldSize);
+                    position = _gameController.RandomService.RandomPosition(levelConfig.worldSize);
                     positionIsValid = true;
 
                     foreach (var model in models) {
@@ -983,8 +1069,8 @@ namespace Assets.Game.Scripts.GameC.GameServices {
             saveFilePath = Path.Combine(Application.persistentDataPath, "saveData.json");
         }
 
-        public void Save(List<IController> controllers) {
-            List<IModel> models = new List<IModel>();
+        public void Save(List<BaseController> controllers) {
+            List<BaseModel> models = new List<BaseModel>();
             foreach (var controller in controllers) {
                 models.Add(controller.Model);
             }
@@ -1003,7 +1089,7 @@ namespace Assets.Game.Scripts.GameC.GameServices {
             File.WriteAllText(saveFilePath, jsonData);
         }
 
-        public List<IModel> Load() {
+        public List<BaseModel> Load() {
             if (!File.Exists(saveFilePath)) {
                 return null;
             }
@@ -1018,7 +1104,7 @@ namespace Assets.Game.Scripts.GameC.GameServices {
                 }
             };
 
-            return JsonConvert.DeserializeObject<List<IModel>>(jsonData, settings);
+            return JsonConvert.DeserializeObject<List<BaseModel>>(jsonData, settings);
         }
     }
 }
@@ -1097,7 +1183,7 @@ using UnityEngine;
 
 namespace Assets.Game.Scripts.GameC.GameStates
 {
-    public abstract class BaseGameState : IGameState
+    public abstract class BaseGameState
     {
         public GameController GameController;
 
@@ -1199,26 +1285,28 @@ namespace Assets.Game.Scripts.GameC.GameStates {
 
 
 // File: C:/Unity/Projects2/Experiment/ExperimentUnity/Assets\Game\Scripts\GameC\GameStates\MenuGameState.cs
-using Assets.Game.Scripts.Bases.Interfaces;
 using UnityEngine;
 
 namespace Assets.Game.Scripts.GameC.GameStates
 {
-    public class MenuGameState : IGameState
-    {
-        public void Enter()
+    public class MenuGameState: BaseGameState {
+        public override void Enter()
         {
             Debug.Log("Enter MenuGameState");
         }
 
-        public void Exit()
+        public override void Exit()
         {
             Debug.Log("Exit MenuGameState");
         }
 
-        public void Execute()
+        public override void Execute()
         {
             Debug.Log("Execute MenuGameState");
+        }
+
+        public MenuGameState(GameController gameController) : base(gameController)
+        {
         }
     }
 }
@@ -1231,21 +1319,25 @@ using UnityEngine;
 
 namespace Assets.Game.Scripts.GameC.GameStates
 {
-    public class NewGameState : IGameState
+    public class NewGameState : BaseGameState
     {
-        public void Enter()
+        public override void Enter()
         {
             Debug.Log("Enter NewGameState");
         }
 
-        public void Exit()
+        public override void Exit()
         {
             Debug.Log("Exit NewGameState");
         }
 
-        public void Execute()
+        public override void Execute()
         {
             Debug.Log("Execute NewGameState");
+        }
+
+        public NewGameState(GameController gameController) : base(gameController)
+        {
         }
     }
 }
@@ -1344,83 +1436,118 @@ namespace Assets.Game.Scripts.Services.InputServices
 
 
 // File: C:/Unity/Projects2/Experiment/ExperimentUnity/Assets\Game\Scripts\Services\MovementServices\MovementService.cs
-using Assets.Game.Scripts.Data.Constants;
+using System.Collections.Generic;
 using UnityEngine;
-using Assets.Game.Scripts.GameC.GameServices;
+using Assets.Game.Scripts.Bases.Interfaces;
 
 namespace Assets.Game.Scripts.Services.MovementServices {
     public class MovementService {
         private Transform _transform;
-        private float _speed;
         private Animator _animator;
-        private IAnimationService _animationService;
+        private AnimationPoolService _animationService;
         private Vector3? _targetPosition;
         private bool _isAttacking;
         private bool _isMoving;
+        private readonly IMovable _movable;
+        private Dictionary<string, AnimationClip> _animations;
+        private int _currentAnimationHash;
 
-        public MovementService(Transform transform, float speed, Animator animator, IAnimationService animationService) {
+        public MovementService(Transform transform, IMovable movable, Animator animator, AnimationPoolService animationService) {
             _transform = transform;
-            _speed = speed;
+            _movable = movable;
             _animator = animator;
             _animationService = animationService;
+            _animations = new Dictionary<string, AnimationClip>();
+            LoadAnimations();
+            _animationService.InitializeAnimator(_animator);
+        }
+
+        private void LoadAnimations() {
+            _animations["Idle"] = _animationService.GetAnimationClip("Idle");
+            _animations["Move"] = _animationService.GetAnimationClip("Move");
+            _animations["Attack"] = _animationService.GetAnimationClip("Attack");
         }
 
         public void SetTarget(Vector3 targetPosition) {
-            if (_isAttacking) return; // Не менять цель, если идет атака
             _targetPosition = targetPosition;
-            if (!_isMoving) {
-                PlayAnimation(ResourceConstants.AmoebaMove);
+            if (!_isMoving && !_isAttacking) {
+                PlayMoveAnimation();
                 _isMoving = true;
             }
             Debug.Log("Target set to: " + targetPosition);
         }
 
         public void UpdateState() {
-            if (_isAttacking) return; // Не двигаться, если идет атака
-
             if (_targetPosition.HasValue) {
                 Vector3 direction = (_targetPosition.Value - _transform.position).normalized;
                 if (Vector3.Distance(_transform.position, _targetPosition.Value) > 0.1f) {
-                    _transform.position = Vector3.MoveTowards(_transform.position, _targetPosition.Value, _speed * Time.deltaTime);
+                    _transform.position = Vector3.MoveTowards(_transform.position, _targetPosition.Value, _movable.Speed * Time.deltaTime);
                     RotateTowards(direction);
-                    Debug.Log("Moving towards: " + _targetPosition.Value);
+                    if (!_isAttacking && !_animator.GetCurrentAnimatorStateInfo(0).IsName("amoeba_attack")) {
+                        PlayMoveAnimation();
+                    }
                 } else {
                     _targetPosition = null;
-                    PlayIdleAnimation();
+                    if (!_isAttacking) {
+                        PlayIdleAnimation();
+                        _isMoving = false;
+                    }
                     Debug.Log("Reached target, switching to idle animation.");
-                    _isMoving = false;
                 }
+            } else if (!_isAttacking) {
+                PlayIdleAnimation();
             }
+        }
+
+        private void PlayMoveAnimation() {
+            PlayAnimation(_animations["Move"]);
         }
 
         private void RotateTowards(Vector3 direction) {
             if (direction != Vector3.zero) {
                 Quaternion targetRotation = Quaternion.LookRotation(Vector3.forward, direction);
-                _transform.rotation = Quaternion.Slerp(_transform.rotation, targetRotation, _speed * Time.deltaTime);
+                _transform.rotation = Quaternion.Slerp(_transform.rotation, targetRotation, _movable.Speed * Time.deltaTime);
             }
         }
 
         public void PlayIdleAnimation() {
-            PlayAnimation(ResourceConstants.AmoebaIdle);
+            PlayAnimation(_animations["Idle"]);
             _isMoving = false;
         }
 
-        public void PlayAttackAnimation() {
-            PlayAnimation(ResourceConstants.AmoebaAttack);
-            _isAttacking = true;
+        public bool TryPlayAttackAnimation() {
+            if (!_isAttacking) {
+                _isAttacking = true;
+                BlendAnimation(_animations["Attack"], 0.5f); // Время смешивания 0.5 секунд
+                return true;
+            }
+            return false;
         }
 
-        private void PlayAnimation(string animationName) {
-            var clip = _animationService.GetAnimationClip(animationName);
-            if (clip != null && !_animator.GetCurrentAnimatorStateInfo(0).IsName(clip.name)) {
-                _animator.Play(clip.name);
+        private void PlayAnimation(AnimationClip clip) {
+            if (clip == null) return;
+            int animationHash = Animator.StringToHash(clip.name);
+            if (_currentAnimationHash != animationHash) {
+                _animator.Play(animationHash);
+                _currentAnimationHash = animationHash;
+                Debug.Log($"Playing animation: {clip.name}");
+            }
+        }
+
+        private void BlendAnimation(AnimationClip clip, float blendDuration) {
+            if (clip == null) return;
+            int animationHash = Animator.StringToHash(clip.name);
+            if (_currentAnimationHash != animationHash) {
+                _animator.CrossFadeInFixedTime(animationHash, blendDuration);
+                _currentAnimationHash = animationHash;
+                Debug.Log($"Blending to animation: {clip.name}");
             }
         }
 
         public void StopAttackAnimation() {
             _isAttacking = false;
             if (_targetPosition.HasValue) {
-                PlayAnimation(ResourceConstants.AmoebaMove);
+                PlayMoveAnimation();
                 _isMoving = true;
             } else {
                 PlayIdleAnimation();

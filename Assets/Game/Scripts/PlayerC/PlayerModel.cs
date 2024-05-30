@@ -1,15 +1,16 @@
 ﻿using Assets.Game.Scripts.Bases.BaseModels;
-using Assets.Game.Scripts.Data.Constants;
+using Assets.Game.Scripts.Bases.Interfaces;
+using Assets.Game.Scripts.Data;
 using Newtonsoft.Json;
 using UnityEngine;
 
 namespace Assets.Game.Scripts.PlayerC {
     [JsonObject(MemberSerialization.OptIn)]
     [System.Serializable]
-    public class PlayerModel : BaseModel {
+    public class PlayerModel : BaseModel, IMovable {
         public PlayerModel() {
-            PrefabReference = ResourceConstants.PlayerPrefab;
             Speed = 5f;
+            Type = MicrobeType.Amoeba;
         }
 
         [JsonProperty("health")]
